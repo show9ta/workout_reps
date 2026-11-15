@@ -35,7 +35,6 @@
         <div class="grid grid-cols-3 gap-2">
             <div>
                 <label class="block text-xs text-gray-400 mb-1">セット数</label>
-                <!-- プルダウンに変更 -->
                 <select id="set-number" class="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white text-center font-bold">
                     <option value="1">1セット</option>
                     <option value="2">2セット</option>
@@ -125,7 +124,6 @@
 
                 if (logs && logs.length > 0) {
                     area.classList.remove('hidden');
-                    // 前回が3セットまでやってたら、次は自動で4セット目を選ぶ
                     const nextSet = logs.length + 1;
                     const setSelect = document.getElementById('set-number');
                     if (nextSet <= 6) {
@@ -170,39 +168,4 @@
             if (error) {
                 alert('保存失敗: ' + error.message);
             } else {
-                alert('保存しました！');
-                // 保存できたら自動で次のセット数にプルダウンを切り替える（6セット目まで）
-                const setSelect = document.getElementById('set-number');
-                const nextSet = set_number + 1;
-                if (nextSet <= 6) {
-                    setSelect.value = nextSet;
-                }
-                fetchHistory();
-            }
-        });
-
-        // 履歴取得
-        async function fetchHistory() {
-            const { data } = await _supabase
-                .from('workout_logs')
-                .select('*, exercises(name)')
-                .order('date', { ascending: false })
-                .limit(20);
-
-            const historyList = document.getElementById('history-list');
-            historyList.innerHTML = '';
-            if (data) {
-                data.forEach(h => {
-                    const div = document.createElement('div');
-                    div.className = 'bg-gray-900 p-3 rounded-xl flex justify-between items-center border border-gray-800 text-sm';
-                    div.innerHTML = `<div><span class="text-gray-400 text-xs mr-2">${h.date}</span><span class="font-bold text-white">${h.exercises?.name}</span></div>` +
-                                    `<div class="text-orange-400 font-bold">${h.set_number}set: ${h.weight}kg × ${h.reps}回</div>`;
-                    historyList.appendChild(div);
-                });
-            }
-        }
-
-        init();
-    </script>
-</body>
-</html>
+                // 保存できたら自動で次のセット数
