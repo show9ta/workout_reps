@@ -120,7 +120,7 @@
         const SUPABASE_URL = 'https://heijdrtigydbeszyfoll.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_eoS3X-CVN9hStOFrEaRCHA_mC1TDeLX';
         // AI診断を使う場合だけ、Edge Functionを作ってtrueにする（使わないならfalseのままでボタンは出ません）
-        const ENABLE_AI = false;
+        const ENABLE_AI = true;
 
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
