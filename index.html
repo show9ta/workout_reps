@@ -6,22 +6,76 @@
     <title>筋トレ記録</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* iPhoneでも崩れない共通フィールド */
+        .field {
+            display: block;
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
+            box-sizing: border-box;
+            height: 3.5rem;
+            padding: 0 0.75rem;
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.75rem;
+            color: #fff;
+            font-size: 16px; /* iOSの自動ズーム防止 */
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .field::placeholder { color: #6b7280; }
+        .field:focus { outline: 2px solid #f97316; outline-offset: -1px; }
+        input[type="date"].field { text-align: left; }
+        input[type="date"].field::-webkit-date-and-time-value { text-align: left; }
+        select.field {
+            padding-right: 2.25rem;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%239ca3af' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+        }
+        .num { text-align: center; font-size: 1.125rem; font-weight: 700; }
+        .chip { flex: 1; height: 2.5rem; border-radius: 0.75rem; font-size: 0.875rem; font-weight: 700;
+                background: #1f2937; border: 1px solid #374151; color: #9ca3af; }
+        .chip.active { background: #f97316; border-color: #f97316; color: #fff; }
+    </style>
 </head>
-<body class="bg-gray-950 text-gray-100 p-4 max-w-md mx-auto font-sans">
+<body class="bg-gray-950 text-gray-100 p-4 max-w-md mx-auto font-sans overflow-x-hidden">
     <h1 class="text-xl font-bold mb-4 text-center text-orange-400">⚡ 筋トレ記録</h1>
 
     <!-- 入力フォーム -->
-    <form id="workout-form" class="bg-gray-900 p-4 rounded-2xl shadow-lg mb-6 space-y-4 border border-gray-800">
+    <form id="workout-form" class="bg-gray-900 p-4 rounded-2xl shadow-lg mb-4 space-y-4 border border-gray-800">
         <div>
             <label class="block text-xs text-gray-400 mb-1">日付</label>
-            <input type="date" id="date" class="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white">
+            <input type="date" id="date" class="field">
         </div>
 
         <div>
-            <label class="block text-xs text-gray-400 mb-1">種目</label>
-            <select id="exercise-select" class="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white">
+            <div class="flex items-center justify-between mb-1">
+                <label class="block text-xs text-gray-400">種目</label>
+                <button type="button" id="toggle-add" class="text-xs text-orange-400 font-semibold">＋ 種目を追加</button>
+            </div>
+            <div id="region-filter" class="flex gap-2 mb-2">
+                <button type="button" class="chip active" data-region="">すべて</button>
+                <button type="button" class="chip" data-region="上半身">上半身</button>
+                <button type="button" class="chip" data-region="下半身">下半身</button>
+            </div>
+            <select id="exercise-select" class="field">
                 <option value="">種目を選んでください</option>
             </select>
+        </div>
+
+        <!-- 種目の手動追加 -->
+        <div id="add-exercise-area" class="hidden bg-gray-800/60 p-3 rounded-xl border border-gray-700 space-y-2">
+            <p class="text-xs text-orange-400 font-semibold">新しい種目</p>
+            <input type="text" id="new-ex-name" placeholder="種目名（例：ラットプルダウン）" class="field">
+            <select id="new-ex-region" class="field">
+                <option value="上半身">上半身</option>
+                <option value="下半身">下半身</option>
+            </select>
+            <button type="button" id="add-exercise-btn" class="w-full h-12 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl transition">
+                種目を登録する
+            </button>
         </div>
 
         <!-- 前回記録の表示エリア -->
@@ -31,63 +85,151 @@
         </div>
 
         <div class="grid grid-cols-3 gap-2">
-            <div>
-                <label class="block text-xs text-gray-400 mb-1">セット数</label>
-                <select id="set-number" class="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white text-center font-bold">
-                    <option value="1">1セット</option>
-                    <option value="2">2セット</option>
-                    <option value="3">3セット</option>
-                </select>
+            <div class="min-w-0">
+                <label class="block text-xs text-gray-400 mb-1">セット</label>
+                <select id="set-number" class="field font-bold"></select>
             </div>
-            <div>
+            <div class="min-w-0">
                 <label class="block text-xs text-gray-400 mb-1">重量 (kg)</label>
-                <input type="text" inputmode="numeric" id="weight" placeholder="80" class="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white text-center text-lg font-bold">
+                <input type="text" inputmode="numeric" id="weight" placeholder="80" class="field num">
             </div>
-            <div>
+            <div class="min-w-0">
                 <label class="block text-xs text-gray-400 mb-1">回数 (reps)</label>
-                <input type="text" inputmode="numeric" pattern="[0-9]*" id="reps" placeholder="10" class="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white text-center text-lg font-bold">
+                <input type="text" inputmode="numeric" pattern="[0-9]*" id="reps" placeholder="10" class="field num">
             </div>
         </div>
 
-        <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold p-3 rounded-xl transition shadow-lg">
+        <button type="submit" class="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition shadow-lg">
             記録を保存する
         </button>
     </form>
+
+    <!-- AI診断（AI_ENDPOINTが空なら非表示） -->
+    <div id="ai-area" class="hidden mb-6">
+        <button type="button" id="ai-btn" class="w-full h-12 bg-gray-900 border border-orange-500/60 text-orange-400 font-bold rounded-xl transition hover:bg-gray-800">
+            🤖 AIに今の状況を聞く
+        </button>
+        <div id="ai-result" class="hidden mt-3 bg-gray-900 border border-gray-800 rounded-xl p-4 text-sm leading-relaxed whitespace-pre-wrap"></div>
+    </div>
 
     <h2 class="text-sm font-bold text-gray-400 mb-2">直近の履歴</h2>
     <div id="history-list" class="space-y-2"></div>
 
     <script>
-        // --- ★あなたのSupabase情報をここに書き換える★ ---
+        // --- Supabase ---
         const SUPABASE_URL = 'https://heijdrtigydbeszyfoll.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_eoS3X-CVN9hStOFrEaRCHA_mC1TDeLX';
-        
+        // AI診断を使う場合だけ、Edge Functionを作ってtrueにする（使わないならfalseのままでボタンは出ません）
+        const ENABLE_AI = false;
+
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        document.getElementById('date').value = new Date().toISOString().split('T')[0];
+        const MAX_SETS = 3;
+        const $ = (id) => document.getElementById(id);
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+        // 今日の日付（ローカル時間。toISOStringだと日本では日付がずれる場合があるため）
+        function today() {
+            const d = new Date();
+            const p = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+        }
+        $('date').value = today();
+
+        // セット選択肢を Set 1 〜 Set 3 に
+        for (let i = 1; i <= MAX_SETS; i++) {
+            const o = document.createElement('option');
+            o.value = i;
+            o.textContent = `Set ${i}`;
+            $('set-number').appendChild(o);
+        }
+        const setSetNumber = (n) => { if (n >= 1 && n <= MAX_SETS) $('set-number').value = n; };
 
         let exercisesData = [];
 
-        async function init() {
-            const { data: exData } = await _supabase.from('exercises').select('*').order('name');
-            if (exData) {
-                exercisesData = exData;
-                const select = document.getElementById('exercise-select');
-                exData.forEach(ex => {
-                    const opt = document.createElement('option');
-                    opt.value = ex.id;
-                    opt.textContent = `${ex.name} (${ex.category})`;
-                    select.appendChild(opt);
-                });
-            }
-            fetchHistory();
+        let currentRegion = ''; // '' = すべて
+
+        // regionが未設定の種目は、どのフィルターでも表示される
+        const regionOf = (ex) => ex.region || '';
+
+        function updateChips() {
+            document.querySelectorAll('#region-filter .chip').forEach((b) => {
+                b.classList.toggle('active', b.dataset.region === currentRegion);
+            });
         }
 
-        document.getElementById('exercise-select').addEventListener('change', async (e) => {
+        function renderExerciseOptions(keepId) {
+            const select = $('exercise-select');
+            const prev = String(keepId ?? select.value ?? '');
+            select.innerHTML = '<option value="">種目を選んでください</option>';
+            exercisesData
+                .filter((ex) => !currentRegion || !regionOf(ex) || regionOf(ex) === currentRegion)
+                .forEach((ex) => {
+                    const opt = document.createElement('option');
+                    opt.value = ex.id;
+                    opt.textContent = ex.name;
+                    select.appendChild(opt);
+                });
+            const exists = [...select.options].some((o) => o.value === prev);
+            select.value = exists ? prev : '';
+            if (keepId || select.value !== prev) select.dispatchEvent(new Event('change'));
+        }
+
+        document.querySelectorAll('#region-filter .chip').forEach((b) => {
+            b.addEventListener('click', () => {
+                currentRegion = b.dataset.region;
+                updateChips();
+                renderExerciseOptions();
+            });
+        });
+
+        async function loadExercises(selectId) {
+            const { data, error } = await _supabase.from('exercises').select('*').order('name');
+            if (error || !data) return;
+            // あいうえお順（濁点・小さい文字も日本語の並びで比較）
+            exercisesData = data.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+
+            renderExerciseOptions(selectId);
+        }
+
+        async function init() {
+            await loadExercises();
+            fetchHistory();
+            if (ENABLE_AI) $('ai-area').classList.remove('hidden');
+        }
+
+        // --- 種目の手動追加 ---
+        $('toggle-add').addEventListener('click', () => {
+            $('add-exercise-area').classList.toggle('hidden');
+        });
+
+        $('add-exercise-btn').addEventListener('click', async () => {
+            const name = $('new-ex-name').value.trim();
+            const region = $('new-ex-region').value;
+            if (!name) { alert('種目名を入力してください'); return; }
+            if (exercisesData.some((e) => e.name === name)) { alert('同じ名前の種目がすでにあります'); return; }
+
+            const { data, error } = await _supabase
+                .from('exercises')
+                .insert([{ name, region }])
+                .select()
+                .single();
+
+            if (error) { alert('追加失敗: ' + error.message); return; }
+
+            $('new-ex-name').value = '';
+            $('add-exercise-area').classList.add('hidden');
+            currentRegion = region;
+            updateChips();
+            await loadExercises(data.id);
+        });
+
+        // --- 前回の記録 ---
+        $('exercise-select').addEventListener('change', async (e) => {
             const exerciseId = e.target.value;
-            const area = document.getElementById('last-log-area');
-            const list = document.getElementById('last-logs-list');
+            const area = $('last-log-area');
+            const list = $('last-logs-list');
             list.innerHTML = '';
 
             if (!exerciseId) {
@@ -104,7 +246,7 @@
 
             if (latestLog && latestLog.length > 0) {
                 const lastDate = latestLog[0].date;
-                document.getElementById('last-date-title').textContent = `💡 前回の記録 (${lastDate})`;
+                $('last-date-title').textContent = `💡 前回の記録 (${lastDate})`;
 
                 const { data: logs } = await _supabase
                     .from('workout_logs')
@@ -115,38 +257,35 @@
 
                 if (logs && logs.length > 0) {
                     area.classList.remove('hidden');
-                    const nextSet = logs.length + 1;
-                    const setSelect = document.getElementById('set-number');
-                    if (nextSet <= 6) {
-                        setSelect.value = nextSet;
-                    }
+                    setSetNumber(1);
 
-                    logs.forEach(log => {
+                    logs.forEach((log) => {
                         const div = document.createElement('div');
                         div.className = 'flex justify-between items-center text-sm bg-gray-900/50 p-2 rounded-lg';
                         div.innerHTML = `<span class="tabular-nums">Set ${log.set_number}: <strong>${log.weight}kg</strong> × ${log.reps}回</span>` +
-                                        `<button type="button" onclick="copySet(${log.weight}, ${log.reps})" class="text-xs bg-orange-600 text-white px-2 py-1 rounded-md">コピー</button>`;
+                                        `<button type="button" onclick="copySet(${Number(log.weight)}, ${Number(log.reps)})" class="text-xs bg-orange-600 text-white px-2 py-1 rounded-md">コピー</button>`;
                         list.appendChild(div);
                     });
                 }
             } else {
                 area.classList.add('hidden');
-                document.getElementById('set-number').value = "1";
+                setSetNumber(1);
             }
         });
 
         function copySet(w, r) {
-            document.getElementById('weight').value = w;
-            document.getElementById('reps').value = r;
+            $('weight').value = w;
+            $('reps').value = r;
         }
 
-        document.getElementById('workout-form').addEventListener('submit', async (e) => {
+        // --- 保存 ---
+        $('workout-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const exercise_id = document.getElementById('exercise-select').value;
-            const date = document.getElementById('date').value;
-            const set_number = parseInt(document.getElementById('set-number').value);
-            const weight = parseFloat(document.getElementById('weight').value);
-            const reps = parseInt(document.getElementById('reps').value);
+            const exercise_id = $('exercise-select').value;
+            const date = $('date').value;
+            const set_number = parseInt($('set-number').value);
+            const weight = parseFloat($('weight').value);
+            const reps = parseInt($('reps').value);
 
             if (!exercise_id || isNaN(weight) || isNaN(reps)) {
                 alert('入力内容を確認してください');
@@ -158,17 +297,13 @@
             if (error) {
                 alert('保存失敗: ' + error.message);
             } else {
-                const setSelect = document.getElementById('set-number');
-                const nextSet = set_number + 1;
-                if (nextSet <= 6) {
-                    setSelect.value = nextSet;
-                }
-                document.getElementById('reps').value = '';
+                setSetNumber(set_number + 1);
+                $('reps').value = '';
                 fetchHistory();
             }
         });
 
-        // 履歴取得（Set表記＆グリッドで縦ラインを綺麗に整列）
+        // --- 履歴 ---
         async function fetchHistory() {
             const { data } = await _supabase
                 .from('workout_logs')
@@ -176,28 +311,56 @@
                 .order('created_at', { ascending: false })
                 .limit(20);
 
-            const historyList = document.getElementById('history-list');
+            const historyList = $('history-list');
             historyList.innerHTML = '';
             if (data) {
-                data.forEach(h => {
+                data.forEach((h) => {
                     const div = document.createElement('div');
                     div.className = 'bg-gray-900 p-3 rounded-xl flex justify-between items-center gap-2 border border-gray-800 text-sm';
                     div.innerHTML = `
                         <div class="min-w-0 flex-1">
-                            <span class="text-gray-400 text-xs mr-1.5 tabular-nums">${h.date}</span>
-                            <span class="font-bold text-white truncate">${h.exercises?.name}</span>
+                            <div class="text-gray-400 text-xs tabular-nums">${esc(h.date)}</div>
+                            <div class="font-bold text-white truncate">${esc(h.exercises?.name)}</div>
                         </div>
-                        <div class="grid grid-cols-[3.2rem_4.2rem_1rem_3.2rem] items-center text-orange-400 font-bold tabular-nums shrink-0">
-                            <span class="text-gray-400 font-normal text-xs">Set ${h.set_number}</span>
-                            <span class="text-right">${h.weight}kg</span>
+                        <div class="grid grid-cols-[3rem_4rem_1rem_3rem] items-center text-orange-400 font-bold tabular-nums shrink-0">
+                            <span class="text-gray-400 font-normal text-xs">Set ${esc(h.set_number)}</span>
+                            <span class="text-right">${esc(h.weight)}kg</span>
                             <span class="text-center text-gray-500 font-normal">×</span>
-                            <span class="text-right">${h.reps}回</span>
+                            <span class="text-right">${esc(h.reps)}回</span>
                         </div>
                     `;
                     historyList.appendChild(div);
                 });
             }
         }
+
+        // --- AI診断（Supabase Edge Function経由。OpenAIキーはブラウザに置かない） ---
+        $('ai-btn').addEventListener('click', async () => {
+            let passcode = localStorage.getItem('ai_passcode');
+            if (!passcode) {
+                passcode = prompt('合言葉を入力してください');
+                if (!passcode) return;
+            }
+            const btn = $('ai-btn');
+            const box = $('ai-result');
+            btn.disabled = true;
+            btn.textContent = '分析中…';
+            box.classList.remove('hidden');
+            box.textContent = '';
+
+            const { data, error } = await _supabase.functions.invoke('ask-ai', { body: { passcode } });
+
+            btn.disabled = false;
+            btn.textContent = '🤖 AIに今の状況を聞く';
+
+            if (error || !data || data.error) {
+                localStorage.removeItem('ai_passcode');
+                box.textContent = '失敗しました: ' + (data?.error || error?.message || '不明なエラー');
+                return;
+            }
+            localStorage.setItem('ai_passcode', passcode);
+            box.textContent = data.answer;
+        });
 
         init();
     </script>
